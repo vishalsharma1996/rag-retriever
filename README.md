@@ -6,19 +6,21 @@ GitHub: [https://github.com/vishalsharma1996/rag-retriever](https://github.com/v
 
 ---
 ## 📂 Project Structure
+
+```text
 rag-retriever/
 ├── src/
-│ ├── init.py
-│ ├── data_loader.py # Load and preprocess raw data
-│ ├── is_long_doc.py # Identify documents exceeding token limits
-│ ├── actual_splitter.py # Split long texts recursively
-│ ├── data_combine.py # Combine split + short docs
-│ ├── model_inference.py # Retrieve relevant documents
-│ ├── evaluate.py # Evaluate retrieval performance
-│ └── ... (other helper modules)
-├── requirements.txt # Python dependencies
-├── Dockerfile # (optional) for containerized setup
-└── main.py # Entry point — orchestrates the full pipeline
+│   ├── __init__.py
+│   ├── data_loader.py           # Load and preprocess raw data
+│   ├── is_long_doc.py           # Identify documents exceeding token limits
+│   ├── actual_splitter.py       # Split long texts recursively
+│   ├── data_combine.py          # Combine split + short docs
+│   ├── model_inference.py       # Retrieve relevant documents
+│   ├── evaluate.py              # Evaluate retrieval performance
+│   └── ... (other helper modules)
+├── requirements.txt             # Python dependencies
+├── Dockerfile                   # (optional) for containerized setup
+└── main.py 
 
 
 ---
