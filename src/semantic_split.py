@@ -2,6 +2,7 @@ import nltk
 import numpy as np
 from nltk.tokenize import sent_tokenize
 from sentence_transformers import SentenceTransformer
+from typing import List, Dict, Any
 def semantic_split(text: str, model: SentenceTransformer, similarity_threshold: float = 0.8) -> List[str]:
     # Sentence tokenize
     sentences = sent_tokenize(text)

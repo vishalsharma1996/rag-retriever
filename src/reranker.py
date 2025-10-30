@@ -1,9 +1,10 @@
 import pandas as pd
+from tqdm import tqdm
 from sentence_transformers import CrossEncoder
 def rerank_batch(reranker: CrossEncoder,
-                 queries: list, 
-                 fil_query_df: pd.DataFrame, 
-                 top_k: int = 10, 
+                 queries: list,
+                 fil_query_df: pd.DataFrame,
+                 top_k: int = 10,
                  batch_size: int = 50)-> pd.DataFrame:
     """
     Re-ranks retrieved documents for each query using a CrossEncoder model.

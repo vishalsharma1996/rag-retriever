@@ -2,10 +2,10 @@ import re
 from typing import List, Dict, Tuple, Any
 def clean_text(fin_data: List[Dict[str,Any]],
                query_data: List[Dict[str,Any]],
-               reverse_company_map: Dict(str,str))-> Tuple[List[Dict[str, Any]], List]:
+               reverse_company_map: Dict[str,str])-> Tuple[List[Dict[str, Any]], List]:
     """
     Cleans and standardizes text fields in financial and query data.
-    
+
     Args:
         fin_data: List of financial data entries, each as a dict.
         query_data: List of query data entries, each as a dict.

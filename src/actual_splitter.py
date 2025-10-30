@@ -1,26 +1,28 @@
 from typing import List, Dict, Any
 from src.semantic_split import semantic_split
+from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-def splitter(li_text_normal: List[Dict[str,Any]],
+def splitter(model: SentenceTransformer,
+             li_text_normal: List[Dict[str,Any]],
              splitter: RecursiveCharacterTextSplitter)-> List[Dict[str, Any]]:
   """
-    Splits overlength financial documents first by semantic similarity, 
+    Splits overlength financial documents first by semantic similarity,
     then further divides them using a recursive character-based splitter.
 
     Args:
-        li_text_normal (List[Dict[str, Any]]): 
+        li_text_normal (List[Dict[str, Any]]):
             List of financial data entries (dicts) exceeding 300 tokens.
-        splitter (RecursiveCharacterTextSplitter): 
+        splitter (RecursiveCharacterTextSplitter):
             LangChain text splitter configured for 300-token chunks with 30-token overlap.
 
     Returns:
-        List[Dict[str, Any]]: 
+        List[Dict[str, Any]]:
             List of split document segments with corresponding metadata.
   """
   split_text_normal = []
   counter  = 0
   for ind in range(len(li_text_normal)):
-    tokenize_li = semantic_split(li_text_normal[ind]['text'],similarity_threshold=0.55)
+    tokenize_li = semantic_split(li_text_normal[ind]['text'],model,similarity_threshold=0.55)
     id = li_text_normal[ind]['_id']
     title = li_text_normal[ind]['title']
     for ind2,sent in enumerate(tokenize_li):

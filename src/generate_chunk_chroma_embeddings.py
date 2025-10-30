@@ -3,6 +3,7 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 from chromadb.api.models import Collection
 from typing import List, Dict, Any
+import numpy as np
 import os
 class embed_and_parallelize:
   def __init__(self, model: SentenceTransformer,
@@ -15,28 +16,28 @@ class embed_and_parallelize:
         Initialize the embedding and parallel processing pipeline.
 
         Args:
-            model (SentenceTransformer): 
+            model (SentenceTransformer):
                 The SentenceTransformer model used to generate vector embeddings
                 from text (e.g., "all-mpnet-base-v2" or "multi-qa-MiniLM-L6-cos-v1").
 
-            docs (List[str]): 
+            docs (List[str]):
                 A list of text documents or chunks that need to be embedded.
                 Each element in this list represents one document or text passage.
 
-            ids (List[str]): 
+            ids (List[str]):
                 Unique identifiers for each document. These IDs are used to store
                 and retrieve documents from the ChromaDB collection.
 
-            metas (List[Dict[str, Any]]): 
+            metas (List[Dict[str, Any]]):
                 Metadata corresponding to each document, such as source, date, or topic.
                 Each element is a dictionary (e.g., {"ticker": "AAPL", "source": "10-K"}).
 
-            collection (Collection): 
-                A ChromaDB collection object (created via 
+            collection (Collection):
+                A ChromaDB collection object (created via
                 `client.get_or_create_collection(name="...")`) where all
                 embeddings, documents, and metadata will be stored.
 
-            batch_size (int, optional): 
+            batch_size (int, optional):
                 Number of documents to embed or upload to ChromaDB in one batch.
                 Default is 500.
     """

@@ -1,18 +1,19 @@
 from typing import List, Dict, Tuple, Any
+import re
 def data_combine(new_data_normal:List[Dict[str,Any]],
                  split_text_normal:List[Dict[str,Any]])-> List[Dict[str, Any]]:
   """
-    Combines unsplit documents (under 300 tokens) with newly split document chunks 
+    Combines unsplit documents (under 300 tokens) with newly split document chunks
     to produce a unified dataset.
 
     Args:
-        new_data_normal (List[Dict[str, Any]]): 
+        new_data_normal (List[Dict[str, Any]]):
             List of original documents that were already under 300 tokens.
         split_text_normal (List[Dict[str, Any]]):
             List of document chunks generated from splitting overlength texts.
 
     Returns:
-        List[Dict[str, Any]]: 
+        List[Dict[str, Any]]:
             Combined list containing both original short documents and split chunks.
   """
   # removing duplicate ids from new_data_normal

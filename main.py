@@ -1,12 +1,17 @@
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["USE_TF"] = "0"  # tell sentence-transformers NOT to use TensorFlow
 import pandas as pd
 import torch
 import chromadb
 import re
-from langchain.embeddings import HuggingFaceEmbeddings
+#from langchain.embeddings import HuggingFaceEmbeddings
 from sentence_transformers import SentenceTransformer,CrossEncoder
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from src import data_loader,data_preprocess,is_long_doc,actual_splitter,data_combine,generate_chunk_chroma_embeddings,model_inference,reranker,evaluate
 def main():
+    print('Starting main')
     # 🔹 Mapping between company names and their ticker symbols
     company_map = {
         'microsoft':'msft', 'adobe':'adbe', 'coupang':'cpng', 'linde':'lin',
@@ -27,7 +32,7 @@ def main():
 
     # 🔹 Initialize embedding and reranker models
     model = SentenceTransformer(model_name, device=device)
-    reranker = CrossEncoder("BAAI/bge-reranker-large", device=device)
+    bge_reranker = CrossEncoder("BAAI/bge-reranker-large", device=device)
 
     # 🔹 Initialize ChromaDB client and collection
     client = chromadb.Client()
@@ -41,8 +46,8 @@ def main():
 
     # 🔹 Load and preprocess data
     fin_der_data = data_loader.load_data('data/corpus.jsonl')
-    query_data = data_loader.load_data('data/corpus.jsonl')
-    new_data_normal, query_data = data_preprocess.clean_text(
+    query_data = data_loader.load_data('data/queries.jsonl')
+    new_data_normal, query_text = data_preprocess.clean_text(
         fin_der_data, query_data, reverse_company_map
     )
 
@@ -50,7 +55,7 @@ def main():
     li_text_normal = is_long_doc.count_tokens(new_data_normal, model_name)
 
     # 🔹 Split those long documents semantically and recursively
-    split_text_normal = actual_splitter.splitter(li_text_normal, splitter)
+    split_text_normal = actual_splitter.splitter(model, li_text_normal, splitter)
 
     # 🔹 Combine short and split documents into one dataset
     concated_new_data = data_combine.data_combine(new_data_normal, split_text_normal)
@@ -74,10 +79,14 @@ def main():
 
     # 🔹 Rerank retrieved results using cross-encoder
     queries = fil_query_df.query_text.unique().tolist()
-    new_fil_query_df = reranker.rerank_batch(reranker, queries, fil_query_df, 10, 50)
+    new_fil_query_df = reranker.rerank_batch(bge_reranker, queries, fil_query_df, 10, 50)
 
     # 🔹 Evaluate retrieval performance
     metrics_df = evaluate.evaluate_retrieval(new_fil_query_df, actual_data)
-    
- 
-  
+    os.makedirs("results", exist_ok=True)
+    output_path = "results/metrics.csv"
+    metrics_df.to_csv(output_path, index=False)
+
+if __name__ == "__main__":
+  main()
+   
