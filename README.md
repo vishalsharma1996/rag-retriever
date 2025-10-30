@@ -21,7 +21,7 @@ rag-retriever/
 ├── requirements.txt             # Python dependencies
 ├── Dockerfile                   # (optional) for containerized setup
 └── main.py 
-
+```
 
 ---
 
