@@ -51,3 +51,34 @@ import nltk
 nltk.download('punkt_tab')
 4. Run the main pipeline
 python main.py
+
+🐳 Run with Docker (GPU-Enabled)
+
+After testing locally or on Colab, you can containerize and run the entire RAG pipeline in a GPU-accelerated Docker environment.
+⚡ One-Line Command
+docker build -t rag-retriever . && docker run --gpus all -it --name rag-container rag-retriever python3 main.py
+🧠 What Happens Behind the Scenes
+
+🏗️ Builds a Docker image named rag-retriever using the Dockerfile.
+
+⚙️ Launches the container with GPU support via --gpus all.
+
+🔍 Runs the full retrieval pipeline with python3 main.py.
+
+🧩 Logs & metrics are visible directly in your terminal
+
+🧰 Helpful Commands
+
+▶️ Restart without rebuilding
+docker start -ai rag-container
+🔁 Rebuild fresh
+docker rm -f rag-container && docker rmi rag-retriever
+
+💡 Notes
+
+Ensure NVIDIA Container Toolkit is installed — installation guide here
+.
+
+GPU version used: CUDA 12.6, compatible with torch==2.8.0+cu126.
+
+Environment variables like TF_CPP_MIN_LOG_LEVEL and CUDA_VISIBLE_DEVICES are already handled inside main.py for cleaner logs.
