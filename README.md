@@ -73,8 +73,9 @@ docker build -t rag-retriever . && docker run --gpus all -it --name rag-containe
 docker start -ai rag-container
 🔁 Rebuild fresh
 docker rm -f rag-container && docker rmi rag-retriever
-🔁 Copy the metrics file out from the container
+🔁 Copy files out from the container
 docker cp rag-container:/app/results/metrics.csv ./metrics.csv
+docker cp rag-container:/app/src/chroma_collection ./chroma_collection
 💡 Notes
 
 Ensure NVIDIA Container Toolkit is installed — installation guide here
