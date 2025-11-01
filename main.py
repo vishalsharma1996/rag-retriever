@@ -5,6 +5,7 @@ os.environ["USE_TF"] = "0"  # tell sentence-transformers NOT to use TensorFlow
 import pandas as pd
 import torch
 import chromadb
+from chromadb.config import Settings
 import re
 #from langchain.embeddings import HuggingFaceEmbeddings
 from sentence_transformers import SentenceTransformer,CrossEncoder
@@ -34,9 +35,12 @@ def main():
     model = SentenceTransformer(model_name, device=device)
     bge_reranker = CrossEncoder("BAAI/bge-reranker-large", device=device)
 
-    # 🔹 Initialize ChromaDB client and collection
-    client = chromadb.Client()
-    collection = client.get_or_create_collection(name='financial_docs_fin-mpnet-base')
+    # 🔹 Initialize Chroma client with persistence
+    persist_dir = os.path.join('src','chroma_collection')
+    os.makedirs(persist_dir,exist_ok=True)
+    client = chromadb.PersistentClient(path = persist_dir)
+    collection_name = "financial_docs_fin-mpnet-base"
+    existing_collections = [c.name for c in client.list_collections()]
 
     # 🔹 Load ground-truth data and clean identifiers
     actual_data = pd.read_csv('data/FinDER_qrels.tsv', sep='\t')
@@ -64,12 +68,17 @@ def main():
     docs = [d["text"] for d in concated_new_data]
     ids = [d["_id"] for d in concated_new_data]
     metas = [{"ticker": re.split(r'(?=\d)', d["_id"])[0].lower()} for d in concated_new_data]
-
-    # 🔹 Generate embeddings and add to Chroma
-    gen_chroma_embed = generate_chunk_chroma_embeddings.embed_and_parallelize(
-        model, docs, ids, metas, collection, 500
-    )
-    collection = gen_chroma_embed.add_to_chroma()
+    if collection_name in existing_collections:
+      print(f"✅ Using existing Chroma collection from {persist_dir}")
+      collection = client.get_collection(collection_name)
+    else:
+      print(f"⚙️ Creating new Chroma collection inside {persist_dir}")
+      collection = client.create_collection(name=collection_name)
+      # 🔹 Generate embeddings and add to Chroma
+      gen_chroma_embed = generate_chunk_chroma_embeddings.embed_and_parallelize(
+          model, docs, ids, metas, collection, 500
+      )
+      collection = gen_chroma_embed.add_to_chroma()
 
     # 🔹 Retrieve top documents for each query
     fil_query_df = model_inference.get_results(
@@ -89,4 +98,4 @@ def main():
 
 if __name__ == "__main__":
   main()
-   
+
