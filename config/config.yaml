@@ -1,0 +1,23 @@
+data:
+  FinDer_qrels.tsv: Ground truth mapping (links each query to its correct retrieved
+    documents)
+  corpus.jsonl: Corpus data (contains all retrievable documents)
+  queries.jsonl: Query data (contains user questions or search queries)
+embedding:
+  model: mukaj/fin-mpnet-base
+  type: SentenceTransformer
+reranker:
+  model: BAAI/bge-reranker-large
+  type: CrossEncoder
+splitter:
+  chunk_overlap: 30
+  chunk_size: 300
+  type: RecursiveCharacterTextSplitter
+system:
+  cuda_version: '12.6'
+  device: cuda
+  gpu_name: Tesla T4
+  python_version: 3.12.12
+vectordb:
+  backend: ChromaDB
+  storage: local
