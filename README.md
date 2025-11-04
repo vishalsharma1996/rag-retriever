@@ -4,6 +4,29 @@ A modular retriever pipeline for **Retrieval-Augmented Generation (RAG)** — fo
 
 GitHub: [https://github.com/vishalsharma1996/rag-retriever](https://github.com/vishalsharma1996/rag-retriever)
 
+# 🧠 MLOps Integration
+
+We’ve introduced MLflow-based experiment tracking to bring structure, reproducibility, and transparency to our RAG retriever experiments.
+This setup enables us to compare metrics, log configurations, and automatically manage artifacts across branches.
+
+🔧 Key Features
+
+Branch-Aware Logging:
+
+The main branch logs all experiment details but does not perform comparisons.
+
+Experiment branches like mlops_integration log results and automatically compare metrics (e.g., recall) with both:
+
+The main branch’s best run
+
+Other runs within the same experiment branch
+
+Automatic Configuration Logging:
+Each run saves its configuration details (e.g., CUDA version, Python version, embedding model, reranker, splitter, and ChromaDB backend) inside artifacts/config_used.yaml.
+
+Artifacts Management:
+When performance improves, the best model artifacts are automatically stored in the artifacts/ directory and versioned for later reuse.
+
 ---
 ## 📂 Project Structure
 
@@ -91,27 +114,3 @@ Ensure NVIDIA Container Toolkit is installed — installation guide here
 GPU version used: CUDA 12.6, compatible with torch==2.8.0+cu126.
 
 Environment variables like TF_CPP_MIN_LOG_LEVEL and CUDA_VISIBLE_DEVICES are already handled inside main.py for cleaner logs.
-
-
-# 🧠 MLOps Integration
-
-We’ve introduced MLflow-based experiment tracking to bring structure, reproducibility, and transparency to our RAG retriever experiments.
-This setup enables us to compare metrics, log configurations, and automatically manage artifacts across branches.
-
-🔧 Key Features
-
-Branch-Aware Logging:
-
-The main branch logs all experiment details but does not perform comparisons.
-
-Experiment branches like mlops_integration log results and automatically compare metrics (e.g., recall) with both:
-
-The main branch’s best run
-
-Other runs within the same experiment branch
-
-Automatic Configuration Logging:
-Each run saves its configuration details (e.g., CUDA version, Python version, embedding model, reranker, splitter, and ChromaDB backend) inside artifacts/config_used.yaml.
-
-Artifacts Management:
-When performance improves, the best model artifacts are automatically stored in the artifacts/ directory and versioned for later reuse.
