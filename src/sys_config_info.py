@@ -2,6 +2,7 @@ import os
 import torch
 import platform
 import yaml
+import shutil
 from src import set_mlflow
 def sys_info():
   """
@@ -78,6 +79,9 @@ def get_config_info(exp_id,timestamp):
     }
 
 def write_config_info(exp_id,timestamp,path='config/config.yaml'):
-  os.makedirs(os.path.dirname(path), exist_ok=True)  # ensures folder exists
+  dirpath = os.path.dirname(path)
+  if os.path.exists(dirpath):
+        shutil.rmtree(dirpath)   # 🧨 removes everything inside
+  os.makedirs(dirpath, exist_ok=True)
   with open(path,'w') as f:
     yaml.dump(get_config_info(exp_id,timestamp),f)
