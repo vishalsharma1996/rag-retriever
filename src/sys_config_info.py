@@ -26,12 +26,12 @@ def get_data_used_info():
   return      {
     "corpus.jsonl": "Corpus data (contains all retrievable documents)",
     "queries.jsonl": "Query data (contains user questions or search queries)",
-    "FinDer_qrels.tsv": "Ground truth mapping (links each query to its correct retrieved documents)"
+    "FinDER_qrels.tsv": "Ground truth mapping (links each query to its correct retrieved documents)"
                 }
 
 def get_data_files():
   data_files = {
-    "FinDer_qrels.tsv": "data/FinDer_qrels.tsv",
+    "FinDer_qrels.tsv": "data/FinDER_qrels.tsv",
     "corpus.jsonl": "data/corpus.jsonl",
     "queries.jsonl": "data/queries.jsonl"
                 }
