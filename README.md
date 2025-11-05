@@ -3,8 +3,9 @@
 A modular retriever pipeline for **Retrieval-Augmented Generation (RAG)** — focusing on data loading, semantic chunking, embedding generation, vector storage, reranking, and retrieval evaluation.  
 
 GitHub: [https://github.com/vishalsharma1996/rag-retriever](https://github.com/vishalsharma1996/rag-retriever)
-🚀 Structured Experiment Tracking with MLflow + DVC
 
+# 🧠 MLOps Integration
+🚀 Structured Experiment Tracking with MLflow + DVC
 We’ve introduced MLflow-based experiment tracking to bring structure, reproducibility, and transparency to our RAG retriever experiments.
 This setup enables us to compare metrics, log configurations, and automatically manage artifacts — all while versioning data with DVC for complete lineage tracking.
 
