@@ -3,9 +3,26 @@ data:
     documents)
   corpus.jsonl: Corpus data (contains all retrievable documents)
   queries.jsonl: Query data (contains user questions or search queries)
+data_files:
+  FinDer_qrels.tsv:
+    md5: null
+    path: data/FinDer_qrels.tsv
+  corpus.jsonl:
+    md5: ab133181a2bea43604d05560222f4291
+    path: data/corpus.jsonl
+  queries.jsonl:
+    md5: b662a2b042918baa84b58a2e08da2c5e
+    path: data/queries.jsonl
 embedding:
   model: mukaj/fin-mpnet-base
   type: SentenceTransformer
+experiment:
+  branch: mlops_integration
+  commit: 839265e
+  experiment: '624884684956683432'
+  metric_primary: recall
+  name: rag-retriever-experiments
+  timestamp: '20251105_161303'
 reranker:
   model: BAAI/bge-reranker-large
   type: CrossEncoder
