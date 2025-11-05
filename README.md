@@ -3,7 +3,98 @@
 A modular retriever pipeline for **Retrieval-Augmented Generation (RAG)** — focusing on data loading, semantic chunking, embedding generation, vector storage, reranking, and retrieval evaluation.  
 
 GitHub: [https://github.com/vishalsharma1996/rag-retriever](https://github.com/vishalsharma1996/rag-retriever)
+🚀 Structured Experiment Tracking with MLflow + DVC
 
+We’ve introduced MLflow-based experiment tracking to bring structure, reproducibility, and transparency to our RAG retriever experiments.
+This setup enables us to compare metrics, log configurations, and automatically manage artifacts — all while versioning data with DVC for complete lineage tracking.
+
+🔧 Key Features
+🧩 Branch-Aware Logging
+
+The main branch logs all experiment details but does not perform comparisons.
+
+Experiment branches (like mlops_integration) log results and automatically compare metrics (e.g., recall) against:
+
+The main branch’s best run
+
+Other runs within the same experiment branch
+
+This ensures every model improvement is validated before merging.
+
+⚙️ Automatic Configuration Logging
+
+Each MLflow run automatically stores its full environment and setup in
+artifacts/config_used.yaml, including:
+
+CUDA and Python versions
+
+Embedding model and reranker configuration
+
+Splitter parameters
+
+ChromaDB backend and collection metadata
+
+This guarantees experiment reproducibility across environments and branches.
+
+📦 Artifacts Management
+
+When performance improves, the best model artifacts are automatically versioned and stored inside artifacts/ for future reuse.
+Each model version is directly linked to:
+
+Its MLflow run ID
+
+The Git commit hash
+
+The data version (tracked via DVC or MD5 signatures)
+
+🧠 DVC Integration through MLflow
+
+To ensure complete data lineage, DVC has been integrated into the MLflow pipeline.
+Every MLflow run now logs:
+
+data_files metadata, including file paths and MD5 hashes
+
+The corresponding DVC file versions and remote storage reference
+
+Example:
+``` text
+data_files:
+  FinDer_qrels.tsv:
+    md5: 683eec2a001505916ac63855853b5b19
+    path: data/FinDER_qrels.tsv
+  corpus.jsonl:
+    md5: ab133181a2bea43604d05560222f4291
+    path: data/corpus.jsonl
+  queries.jsonl:
+    md5: b662a2b042918baa84b58a2e08da2c5e
+    path: data/queries.jsonl
+```
+
+These hashes are logged as MLflow parameters, giving every experiment a data fingerprint.
+If a dataset changes, the hash changes — and MLflow immediately treats it as a new data version.
+
+This creates a direct bridge between MLflow and DVC, giving full visibility into:
+
+Which data version trained each model
+
+When data or features changed
+
+How performance shifted across dataset versions
+
+🧾 Why This Matters
+
+With MLflow + DVC, we’ve achieved:
+
+✅ End-to-end experiment traceability
+
+✅ Data version control tied directly to model metrics
+
+✅ Automated artifact management and comparison across branches
+
+Every run is now reproducible, explainable, and comparable — across time, branches, and data versions.
+
+💬 Next Step:
+Integrating CI workflows (GitHub Actions) to auto-trigger retraining when new DVC data versions or experiment configs are pushed.
 ---
 ## 📂 Project Structure
 
