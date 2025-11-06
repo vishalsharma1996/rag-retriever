@@ -74,7 +74,8 @@ def get_config_info(exp_id,timestamp):
                       'experiment_id':exp_id,
                       'branch':git_info['branch'],
                       'commit':git_info['commit_or_tag'],
-                      'metric_primary':'recall'},
+                      'metric_primary':'recall',
+                      'intentional_data_update':False},
         'data_files':files_info
     }
 

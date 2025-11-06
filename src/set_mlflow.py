@@ -56,6 +56,61 @@ def compute_md5(path, chunk_size=8192):
 
     return h.hexdigest()  # return final 32-character hex digest
 
+def fetch_main_config(output_path="main_branch_artifacts/config.yaml"):
+    """Fetch latest config_used.yaml from main branch."""
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    try:
+        subprocess.run(
+            ["git", "show", "main:config/config.yaml"],
+            stdout = open(output_path, "w"),
+            stderr = subprocess.PIPE,
+            check = True,
+        )
+        print(f"✅ Fetched main/config.yaml → {output_path}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print("⚠️ Failed to fetch main branch config:", e)
+        return False
+
+def compare_data_hashes(main_cfg,current_cfg):
+  """
+    Compare data file hashes between main and current experiment.
+    Returns True if all files match, else False.
+  """
+  changed, new, missing = [], [], []
+  if not main_cfg or not current_cfg:
+    print("⚠️ Missing configuration(s) for comparison.")
+    return False
+  main_data = main_cfg.get('data_files',{})
+  current_data = current_cfg.get('data_files',{})
+  all_match = True
+  for name,d in current_data.items():
+    main_md5 = main_data.get(name,{}).get('md5')
+    current_md5 = d.get('md5')
+    if main_md5 is None:
+      print(f"🆕 New file detected: {name}")
+      new.append(name)
+      all_match = False
+      print(f'New file detected {name}')
+    elif main_md5 != current_md5:
+      print(f"⚠️ Mismatch detected in: {name}")
+      print(f"   main    : {main_md5}")
+      print(f"   current : {current_md5}")
+      missing.append({'name':name,
+                      'main_md5':main_md5,
+                      'current_md5':current_md5})
+      all_match = False
+    else:
+      print(f"✅ {name} unchanged")
+  for name in main_data:
+    if name not in current_data:
+      print(f"⚠️ Missing in current config: {name}")
+      missing.append(name)
+      all_match = False
+  print("\n✅ Data integrity check passed!\n" if all_match else "\n❌ Data mismatch detected.\n")
+  diff = {"changed": changed, "new": new, "missing": missing}
+  return all_match,diff
+    
 def get_best_run(metric='recall',branch='main'):
   """
     Fetch best MLflow run by metric value from a specific branch.

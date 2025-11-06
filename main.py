@@ -112,6 +112,12 @@ def main():
     config = train_log.load_config()
     metrics_dict = dict()
     metrics_dict['recall'] = metrics_df.recall.mean()
+    # validate data integrity
+    set_mlflow.fetch_main_config(output_path="main_branch_artifacts/config.yaml") # fetch config file from main branch
+    current_cfg = train_log.validated_data_integrity(main_path='main_branch_artifacts/config.yaml',
+                                       current_path = 'config/config.yaml')
+    if not current_cfg['data_integrity_passed']:
+      current_cfg['experiment']['intentional_data_update'] = True
     # Run experiment, log results, and update artifacts if performance improves
     with mlflow.start_run(run_name=f"{branch}_run_{timestamp}") as run:
       train_log.log_mlflow_metrics(config, metrics_dict, data_info, info_sys)
@@ -136,4 +142,3 @@ def main():
 
 if __name__ == "__main__":
   main()
-
