@@ -5,6 +5,7 @@ os.environ["USE_TF"] = "0"  # tell sentence-transformers NOT to use TensorFlow
 import pandas as pd
 import torch
 import chromadb
+import yaml
 from chromadb.config import Settings
 import mlflow
 from datetime import datetime
@@ -118,6 +119,9 @@ def main():
                                        current_path = 'config/config.yaml')
     if not current_cfg['data_integrity_passed']:
       current_cfg['experiment']['intentional_data_update'] = True
+    with open('config/config.yaml','w') as f:
+      yaml.dump(current_cfg,f)
+
     # Run experiment, log results, and update artifacts if performance improves
     with mlflow.start_run(run_name=f"{branch}_run_{timestamp}") as run:
       train_log.log_mlflow_metrics(config, metrics_dict, data_info, info_sys)
