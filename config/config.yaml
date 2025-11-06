@@ -1,0 +1,40 @@
+data:
+  FinDER_qrels.tsv: Ground truth mapping (links each query to its correct retrieved
+    documents)
+  corpus.jsonl: Corpus data (contains all retrievable documents)
+  queries.jsonl: Query data (contains user questions or search queries)
+data_files:
+  FinDer_qrels.tsv:
+    md5: 683eec2a001505916ac63855853b5b19
+    path: data/FinDER_qrels.tsv
+  corpus.jsonl:
+    md5: ab133181a2bea43604d05560222f4291
+    path: data/corpus.jsonl
+  queries.jsonl:
+    md5: b662a2b042918baa84b58a2e08da2c5e
+    path: data/queries.jsonl
+embedding:
+  model: mukaj/fin-mpnet-base
+  type: SentenceTransformer
+experiment:
+  branch: mlops_integration
+  commit: 13b7121
+  experiment_id: '624884684956683432'
+  metric_primary: recall
+  name: rag-retriever-experiments
+  timestamp: '20251105_164023'
+reranker:
+  model: BAAI/bge-reranker-large
+  type: CrossEncoder
+splitter:
+  chunk_overlap: 30
+  chunk_size: 300
+  type: RecursiveCharacterTextSplitter
+system:
+  cuda_version: '12.6'
+  device: cuda
+  gpu_name: Tesla T4
+  python_version: 3.12.12
+vectordb:
+  backend: ChromaDB
+  storage: local
