@@ -6,10 +6,13 @@ import pandas as pd
 import torch
 import chromadb
 from chromadb.config import Settings
+import mlflow
+from datetime import datetime
 import re
 #from langchain.embeddings import HuggingFaceEmbeddings
 from sentence_transformers import SentenceTransformer,CrossEncoder
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from src import sys_config_info,set_mlflow,train_log
 from src import data_loader,data_preprocess,is_long_doc,actual_splitter,data_combine,generate_chunk_chroma_embeddings,model_inference,reranker,evaluate
 def main():
     print('Starting main')
@@ -95,6 +98,41 @@ def main():
     os.makedirs("results", exist_ok=True)
     output_path = "results/metrics.csv"
     metrics_df.to_csv(output_path, index=False)
+
+    # Set up mlfow
+    # writing up the config file
+    compare,branch = set_mlflow.setup_mlflow()
+    exp = mlflow.get_experiment_by_name(name='rag-retriever-experiments')
+    # Format the current time (YYYYMMDD_HHMMSS)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    sys_config_info.write_config_info(exp.experiment_id,timestamp)
+    # get data and sys info
+    data_info = sys_config_info.get_data_used_info()
+    info_sys = sys_config_info.sys_info()
+    config = train_log.load_config()
+    metrics_dict = dict()
+    metrics_dict['recall'] = metrics_df.recall.mean()
+    # Run experiment, log results, and update artifacts if performance improves
+    with mlflow.start_run(run_name=f"{branch}_run_{timestamp}") as run:
+      train_log.log_mlflow_metrics(config, metrics_dict, data_info, info_sys)
+      if compare:
+        best_run_main = set_mlflow.get_best_run(metric = 'recall',branch = 'main')
+        best_run_branch = set_mlflow.get_best_run(metric = 'recall',branch = branch)
+        main_best_recall = best_run_main['metrics.recall'].values[0] if best_run_main is not None else 0
+        branch_best_recall = best_run_branch['metrics.recall'].values[0] if best_run_branch is not None else 0
+        if metrics_dict['recall'] > main_best_recall and metrics_dict['recall'] > branch_best_recall:
+          print(" New global best! Promoting artifacts...")
+          os.makedirs('artifacts',exist_ok=True)
+          with open('artifacts/config_used.yaml','w') as f:
+            yaml.dump(config,f)
+          mlflow.log_artifacts('artifacts')
+        elif metrics_dict['recall'] > branch_best_recall:
+          print("🟢 Better than previous branch runs but not main — keep experimenting.")
+        else:
+          print("🟡 No improvement over current bests.")
+      else:
+        print("📘 Main branch: logging only (no comparisons).")
+
 
 if __name__ == "__main__":
   main()
