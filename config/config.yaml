@@ -3,10 +3,6 @@ data:
     documents)
   corpus.jsonl: Corpus data (contains all retrievable documents)
   queries.jsonl: Query data (contains user questions or search queries)
-data_diff:
-  changed: []
-  missing: []
-  new: []
 data_files:
   FinDer_qrels.tsv:
     md5: 683eec2a001505916ac63855853b5b19
@@ -17,18 +13,18 @@ data_files:
   queries.jsonl:
     md5: b662a2b042918baa84b58a2e08da2c5e
     path: data/queries.jsonl
-data_integrity_passed: true
 embedding:
   model: mukaj/fin-mpnet-base
   type: SentenceTransformer
 experiment:
-  branch: mlops_integration
-  commit: cba69e0
-  experiment_id: '624884684956683432'
+  branch: main
+  commit: 241d613
+  data_version: v1.0
+  experiment_id: '598786350266484214'
   intentional_data_update: false
   metric_primary: recall
   name: rag-retriever-experiments
-  timestamp: '20251106_185902'
+  timestamp: '20251108_164209'
 reranker:
   model: BAAI/bge-reranker-large
   type: CrossEncoder
