@@ -85,20 +85,21 @@ def main():
       collection = gen_chroma_embed.add_to_chroma()
 
     # 🔹 Retrieve top documents for each query
-    fil_query_df = model_inference.get_results(
-        query_data, model, actual_data,
-        company_map, reverse_company_map, collection, 100
-    )
+    # fil_query_df = model_inference.get_results(
+    #     query_data, model, actual_data,
+    #     company_map, reverse_company_map, collection, 100
+    # )
 
-    # 🔹 Rerank retrieved results using cross-encoder
-    queries = fil_query_df.query_text.unique().tolist()
-    new_fil_query_df = reranker.rerank_batch(bge_reranker, queries, fil_query_df, 10, 50)
+    # # 🔹 Rerank retrieved results using cross-encoder
+    # queries = fil_query_df.query_text.unique().tolist()
+    # new_fil_query_df = reranker.rerank_batch(bge_reranker, queries, fil_query_df, 10, 50)
 
-    # 🔹 Evaluate retrieval performance
-    metrics_df = evaluate.evaluate_retrieval(new_fil_query_df, actual_data)
-    os.makedirs("results", exist_ok=True)
-    output_path = "results/metrics.csv"
-    metrics_df.to_csv(output_path, index=False)
+    # # 🔹 Evaluate retrieval performance
+    # metrics_df = evaluate.evaluate_retrieval(new_fil_query_df, actual_data)
+    # os.makedirs("results", exist_ok=True)
+    # output_path = "results/metrics.csv"
+    # metrics_df.to_csv(output_path, index=False)
+    metrics_df = pd.read_csv('results/metrics.csv')
 
     # Set up mlfow
     # writing up the config file
@@ -124,6 +125,7 @@ def main():
                                           current_path = 'config/config.yaml')
         if not current_cfg['data_integrity_passed']:
           current_cfg['experiment']['intentional_data_update'] = True
+          current_cfg['experiment']['data_version'] = 'Base version changed check data diff'
         with open('config/config.yaml','w') as f:
           yaml.dump(current_cfg,f)
         best_run_main = set_mlflow.get_best_run(metric = 'recall',branch = 'main')
