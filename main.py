@@ -113,19 +113,19 @@ def main():
     config = train_log.load_config()
     metrics_dict = dict()
     metrics_dict['recall'] = metrics_df.recall.mean()
-    # validate data integrity
-    set_mlflow.fetch_main_config(output_path="main_branch_artifacts/config.yaml") # fetch config file from main branch
-    current_cfg = train_log.validated_data_integrity(main_path='main_branch_artifacts/config.yaml',
-                                       current_path = 'config/config.yaml')
-    if not current_cfg['data_integrity_passed']:
-      current_cfg['experiment']['intentional_data_update'] = True
-    with open('config/config.yaml','w') as f:
-      yaml.dump(current_cfg,f)
 
     # Run experiment, log results, and update artifacts if performance improves
     with mlflow.start_run(run_name=f"{branch}_run_{timestamp}") as run:
       train_log.log_mlflow_metrics(config, metrics_dict, data_info, info_sys)
       if compare:
+        # validate data integrity
+        set_mlflow.fetch_main_config(output_path="main_branch_artifacts/config.yaml") # fetch config file from main branch
+        current_cfg = train_log.validated_data_integrity(main_path='main_branch_artifacts/config.yaml',
+                                          current_path = 'config/config.yaml')
+        if not current_cfg['data_integrity_passed']:
+          current_cfg['experiment']['intentional_data_update'] = True
+        with open('config/config.yaml','w') as f:
+          yaml.dump(current_cfg,f)
         best_run_main = set_mlflow.get_best_run(metric = 'recall',branch = 'main')
         best_run_branch = set_mlflow.get_best_run(metric = 'recall',branch = branch)
         main_best_recall = best_run_main['metrics.recall'].values[0] if best_run_main is not None else 0
