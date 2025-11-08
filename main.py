@@ -127,21 +127,17 @@ def main():
         with open('config/config.yaml','w') as f:
           yaml.dump(current_cfg,f)
         best_run_main = set_mlflow.get_best_run(metric = 'recall',branch = 'main')
-        best_run_branch = set_mlflow.get_best_run(metric = 'recall',branch = branch)
         main_best_recall = best_run_main['metrics.recall'].values[0] if best_run_main is not None else 0
-        branch_best_recall = best_run_branch['metrics.recall'].values[0] if best_run_branch is not None else 0
-        if metrics_dict['recall'] > main_best_recall and metrics_dict['recall'] > branch_best_recall:
+        if metrics_dict['recall'] > main_best_recall:
           print(" New global best! Promoting artifacts...")
           os.makedirs('artifacts',exist_ok=True)
           with open('artifacts/config_used.yaml','w') as f:
             yaml.dump(config,f)
           mlflow.log_artifacts('artifacts')
-        elif metrics_dict['recall'] > branch_best_recall:
-          print("🟢 Better than previous branch runs but not main — keep experimenting.")
         else:
           print("🟡 No improvement over current bests.")
       else:
-        print("📘 Main branch: logging only (no comparisons).")
+          print("📘 Main branch: logging only (no comparisons).")
 
 
 if __name__ == "__main__":
