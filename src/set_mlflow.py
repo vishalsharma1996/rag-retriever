@@ -96,7 +96,7 @@ def compare_data_hashes(main_cfg,current_cfg):
       print(f"⚠️ Mismatch detected in: {name}")
       print(f"   main    : {main_md5}")
       print(f"   current : {current_md5}")
-      missing.append({'name':name,
+      changed.append({'name':name,
                       'main_md5':main_md5,
                       'current_md5':current_md5})
       all_match = False
@@ -110,7 +110,7 @@ def compare_data_hashes(main_cfg,current_cfg):
   print("\n✅ Data integrity check passed!\n" if all_match else "\n❌ Data mismatch detected.\n")
   diff = {"changed": changed, "new": new, "missing": missing}
   return all_match,diff
-    
+
 def get_best_run(metric='recall',branch='main'):
   """
     Fetch best MLflow run by metric value from a specific branch.
