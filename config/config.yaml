@@ -23,12 +23,13 @@ embedding:
   type: SentenceTransformer
 experiment:
   branch: mlops_integration
-  commit: cba69e0
+  commit: d59f1ab
+  data_version: v1.0
   experiment_id: '624884684956683432'
   intentional_data_update: false
   metric_primary: recall
   name: rag-retriever-experiments
-  timestamp: '20251106_185902'
+  timestamp: '20251108_165611'
 reranker:
   model: BAAI/bge-reranker-large
   type: CrossEncoder
