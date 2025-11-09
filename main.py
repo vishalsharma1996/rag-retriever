@@ -128,6 +128,10 @@ def main():
           current_cfg['experiment']['data_version'] = 'Base version changed check data diff'
         with open('config/config.yaml','w') as f:
           yaml.dump(current_cfg,f)
+        # appends history of data version logs
+        train_log.append_version_log(timestamp,branch,
+                           main_path="main_branch_artifacts/config.yaml",
+                           current_path="config/config.yaml")
         best_run_main = set_mlflow.get_best_run(metric = 'recall',branch = 'main')
         main_best_recall = best_run_main['metrics.recall'].values[0] if best_run_main is not None else 0
         if metrics_dict['recall'] > main_best_recall:

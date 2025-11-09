@@ -1,6 +1,7 @@
 import mlflow
 import yaml
 import os
+import json
 from src.set_mlflow import setup_mlflow, get_best_run, compare_data_hashes
 
 def load_config(path='config/config.yaml'):
@@ -11,6 +12,7 @@ def load_config(path='config/config.yaml'):
 def validated_data_integrity(main_path="main_branch_artifacts/config.yaml",
                              current_path="config/config.yaml",
                              current_cfg=None):
+  ''' Checks the data integrity'''
   main_cfg = load_config(main_path)
   current_cfg = load_config(current_path)
   data_ok, diff = compare_data_hashes(main_cfg, current_cfg)
@@ -18,6 +20,33 @@ def validated_data_integrity(main_path="main_branch_artifacts/config.yaml",
   current_cfg["data_diff"] = diff
   current_cfg["data_integrity_passed"] = data_ok
   return current_cfg
+
+def append_version_log(timestamp,branch,
+                       main_path="main_branch_artifacts/config.yaml",
+                       current_path="config/config.yaml"):
+  ''' Maintain data logs of all the runs in current branch if compared to main'''
+  current_cfg = validated_data_integrity(main_path="main_branch_artifacts/config.yaml",
+                       current_path="config/config.yaml")
+  main_cfg = load_config(main_path)
+  log_entry = {'timestamp':timestamp,
+               'branch':branch,
+               'base_main_version':main_cfg['experiment']['data_version'],
+               'changed_files':[c['name'] for c in current_cfg['data_diff']['changed']],
+               'new_files':[c['name'] for c in current_cfg['data_diff']['new']],
+               'missing_files':current_cfg['data_diff'].get('missing',[]),
+               'changed_version':[c['new_version'] for c in current_cfg['data_diff']['changed']],
+               'commit':current_cfg['experiment'].get('commit','unknown'),
+               'reason':'Detected dataset diff via md5'}
+  path = 'logs/version_logs.json'
+  os.makedirs(os.path.dirname(path),exist_ok=True)
+  version_log = []
+  if os.path.exists(path):
+    with open(path,'r') as f:
+      version_log = json.load(f)
+  version_log.append(log_entry)
+  with open(path,'w') as f:
+    json.dump(version_log,f,indent=2)
+
 
 def log_mlflow_metrics(config, metrics, data_info, sys_info):
   """Logs config and metrics to mlflow."""
