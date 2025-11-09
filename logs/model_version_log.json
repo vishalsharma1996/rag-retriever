@@ -1,0 +1,29 @@
+[
+  {
+    "timestamp": "20251109_150327",
+    "branch": "mlops_integration",
+    "commit": "2b81c01",
+    "embedding_model": {
+      "current": "mukaj/fin-mpnet-base",
+      "main": "mukaj/fin-mpnet-base",
+      "type": "SentenceTransformer"
+    },
+    "reranker_model": {
+      "current": "BAAI/bge-reranker-large",
+      "main": "BAAI/bge-reranker-large",
+      "type": "CrossEncoder"
+    },
+    "vectordb": {
+      "current": "ChromaDB",
+      "main": "ChromaDB",
+      "storage": "local"
+    },
+    "splitter": {
+      "current_chunk_size": 300,
+      "main_chunk_size": 300,
+      "current_chunk_overlap": 30,
+      "main_chunk_overlap": 30,
+      "type": "RecursiveCharacterTextSplitter"
+    }
+  }
+]

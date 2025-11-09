@@ -85,21 +85,20 @@ def main():
       collection = gen_chroma_embed.add_to_chroma()
 
     # 🔹 Retrieve top documents for each query
-    # fil_query_df = model_inference.get_results(
-    #     query_data, model, actual_data,
-    #     company_map, reverse_company_map, collection, 100
-    # )
+    fil_query_df = model_inference.get_results(
+        query_data, model, actual_data,
+        company_map, reverse_company_map, collection, 100
+    )
 
-    # # 🔹 Rerank retrieved results using cross-encoder
-    # queries = fil_query_df.query_text.unique().tolist()
-    # new_fil_query_df = reranker.rerank_batch(bge_reranker, queries, fil_query_df, 10, 50)
+    # 🔹 Rerank retrieved results using cross-encoder
+    queries = fil_query_df.query_text.unique().tolist()
+    new_fil_query_df = reranker.rerank_batch(bge_reranker, queries, fil_query_df, 10, 50)
 
-    # # 🔹 Evaluate retrieval performance
-    # metrics_df = evaluate.evaluate_retrieval(new_fil_query_df, actual_data)
-    # os.makedirs("results", exist_ok=True)
-    # output_path = "results/metrics.csv"
-    # metrics_df.to_csv(output_path, index=False)
-    metrics_df = pd.read_csv('results/metrics.csv')
+    # 🔹 Evaluate retrieval performance
+    metrics_df = evaluate.evaluate_retrieval(new_fil_query_df, actual_data)
+    os.makedirs("results", exist_ok=True)
+    output_path = "results/metrics.csv"
+    metrics_df.to_csv(output_path, index=False)
 
     # Set up mlfow
     # writing up the config file
@@ -130,6 +129,9 @@ def main():
           yaml.dump(current_cfg,f)
         # appends history of data version logs
         train_log.append_version_log(timestamp,branch,
+                           main_path="main_branch_artifacts/config.yaml",
+                           current_path="config/config.yaml")
+        train_log.append_model_version_log(timestamp,branch,
                            main_path="main_branch_artifacts/config.yaml",
                            current_path="config/config.yaml")
         best_run_main = set_mlflow.get_best_run(metric = 'recall',branch = 'main')
