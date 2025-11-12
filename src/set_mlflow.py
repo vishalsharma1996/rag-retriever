@@ -83,22 +83,25 @@ def compare_data_hashes(main_cfg,current_cfg):
     return False
   main_data = main_cfg.get('data_files',{})
   current_data = current_cfg.get('data_files',{})
+  main_version = float(re.sub('[^0-9.]*','',main_cfg.get('experiment',{}).get('data_version','v1.0')))
   all_match = True
   for name,d in current_data.items():
     main_md5 = main_data.get(name,{}).get('md5')
     current_md5 = d.get('md5')
     if main_md5 is None:
       print(f"🆕 New file detected: {name}")
-      new.append(name)
+      new.append({'name':name,
+                  'version':'v1.0'})
       all_match = False
-      print(f'New file detected {name}')
     elif main_md5 != current_md5:
       print(f"⚠️ Mismatch detected in: {name}")
       print(f"   main    : {main_md5}")
       print(f"   current : {current_md5}")
+      new_version = f'v{main_version + 0.1}'
       changed.append({'name':name,
                       'main_md5':main_md5,
-                      'current_md5':current_md5})
+                      'current_md5':current_md5,
+                      'new_version':new_version})
       all_match = False
     else:
       print(f"✅ {name} unchanged")
