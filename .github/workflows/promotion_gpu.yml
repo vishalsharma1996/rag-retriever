@@ -12,22 +12,26 @@ jobs:
       options: --gpus all
 
     steps:
+      # 1️⃣ Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Install dependencies
       - name: Install dependencies
         run: |
-          apt-get update && apt-get install -y python3 python3-pip git
+          apt-get update && apt-get install -y python3 python3-pip git jq
           pip install --upgrade pip setuptools wheel
           pip install --no-cache-dir -r requirements.txt
           echo "✅ Dependencies installed successfully."
 
+      # 3️⃣ Run experiment
       - name: Run RAG retriever pipeline
         run: |
           echo "🚀 Running experiment pipeline with GPU..."
           python3 main.py
           echo "✅ main.py execution completed."
 
+      # 4️⃣ Evaluate promotion status
       - name: Evaluate promotion status
         run: |
           if [ -f promotion_result.json ]; then
@@ -45,6 +49,31 @@ jobs:
             exit 1
           fi
 
+      # 5️⃣ ✅ File Validation: Allow only data/, .py, and requirements.txt
+      - name: Validate changed files
+        run: |
+          echo "🔍 Checking changed files in this PR..."
+          git fetch origin main
+          changed_files=$(git diff --name-only origin/main HEAD)
+          echo "Changed files:"
+          echo "$changed_files"
+
+          # Allow only files under data/, any .py file, or requirements.txt
+          allowed_regex='(^data/|\.py$|^requirements\.txt$)'
+
+          # Detect any disallowed files
+          disallowed=$(echo "$changed_files" | grep -Ev "$allowed_regex" || true)
+
+          if [ -n "$disallowed" ]; then
+            echo "❌ Merge blocked! Disallowed files detected:"
+            echo "$disallowed"
+            echo "Only Python files, data/ files, and requirements.txt are allowed."
+            exit 1
+          else
+            echo "✅ File validation passed — safe to merge."
+          fi
+
+      # 6️⃣ Auto-merge PR (only if file validation & all steps passed)
       - name: Auto-merge PR
         if: success()
         uses: pascalgn/automerge-action@v0.15.6
