@@ -8,6 +8,7 @@ import chromadb
 import yaml
 from chromadb.config import Settings
 import mlflow
+import json
 from datetime import datetime
 import re
 #from langchain.embeddings import HuggingFaceEmbeddings
@@ -124,18 +125,42 @@ def main():
                                           current_path = 'config/config.yaml')
         if not current_cfg['data_integrity_passed']:
           current_cfg['experiment']['intentional_data_update'] = True
+          current_cfg['experiment']['data_version'] = 'Base version changed check data diff'
         with open('config/config.yaml','w') as f:
           yaml.dump(current_cfg,f)
+        # appends history of data version logs
+        train_log.append_version_log(timestamp,branch,
+                           main_path="main_branch_artifacts/config.yaml",
+                           current_path="config/config.yaml")
+        train_log.append_model_version_log(timestamp,branch,
+                           main_path="main_branch_artifacts/config.yaml",
+                           current_path="config/config.yaml")
         best_run_main = set_mlflow.get_best_run(metric = 'recall',branch = 'main')
         main_best_recall = best_run_main['metrics.recall'].values[0] if best_run_main is not None else 0
         if metrics_dict['recall'] > main_best_recall:
           print(" New global best! Promoting artifacts...")
           os.makedirs('artifacts',exist_ok=True)
           with open('artifacts/config_used.yaml','w') as f:
-            yaml.dump(config,f)
+            yaml.dump(current_cfg,f)
           mlflow.log_artifacts('artifacts')
+          with open("promotion_result.json", "w") as f:
+            json.dump({
+                "promotion_status": "approved",
+                "branch": branch,
+                "metric": "recall",
+                "main_score": float(main_best_recall),
+                "new_score": float(metrics_dict["recall"])
+                      }, f, indent=2)
         else:
           print("🟡 No improvement over current bests.")
+          with open("promotion_result.json", "w") as f:
+            json.dump({
+                "promotion_status": "skipped",
+                "branch": branch,
+                "metric": "recall",
+                "main_score": float(main_best_recall),
+                "new_score": float(metrics_dict["recall"])
+                      }, f, indent=2)
       else:
           print("📘 Main branch: logging only (no comparisons).")
 
