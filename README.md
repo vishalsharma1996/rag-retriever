@@ -27,6 +27,20 @@ Each run saves its configuration details (e.g., CUDA version, Python version, em
 Artifacts Management:
 When performance improves, the best model artifacts are automatically stored in the artifacts/ directory and versioned for later reuse.
 
+# 🚀 CI/CD Integration (GPU-Enabled)
+
+We’ve integrated a GPU-aware CI/CD pipeline using GitHub Actions to automate experiment validation and promotion.
+
+🔧 Key Highlights
+
+Automated Experiment Validation: Every pull request to main automatically runs the RAG retriever pipeline on a GPU environment (CUDA 12.6 + PyTorch 2.8.0+cu126) to verify performance improvements.
+
+Metric-Based Promotion: If recall improves, the experiment is automatically promoted — updating artifacts and merging the branch into main.
+
+Secure Auto-Merge: Uses GitHub’s GITHUB_TOKEN for authenticated merges, ensuring only validated runs reach production.
+
+Reproducible GPU Setup: The workflow mirrors the same CUDA and dependency setup used locally for consistent, deterministic results.
+
 ---
 ## 📂 Project Structure
 
