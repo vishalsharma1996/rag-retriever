@@ -1,0 +1,53 @@
+name: Validate and Promote (Full GPU Mode)
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    container:
+      image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
+      options: --gpus all
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update && apt-get install -y python3 python3-pip git
+          pip install --upgrade pip setuptools wheel
+          pip install --no-cache-dir -r requirements.txt
+          echo "✅ Dependencies installed successfully."
+
+      - name: Run RAG retriever pipeline
+        run: |
+          echo "🚀 Running experiment pipeline with GPU..."
+          python3 main.py
+          echo "✅ main.py execution completed."
+
+      - name: Evaluate promotion status
+        run: |
+          if [ -f promotion_result.json ]; then
+            echo "📄 Found promotion_result.json"
+            cat promotion_result.json
+            status=$(jq -r '.promotion_status' promotion_result.json)
+            if [ "$status" = "approved" ]; then
+              echo "✅ Promotion approved."
+            else
+              echo "❌ No improvement detected — skipping merge."
+              exit 1
+            fi
+          else
+            echo "⚠️ promotion_result.json not found — skipping merge."
+            exit 1
+          fi
+
+      - name: Auto-merge PR
+        if: success()
+        uses: pascalgn/automerge-action@v0.15.6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_METHOD: merge
