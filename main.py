@@ -8,6 +8,7 @@ import chromadb
 import yaml
 from chromadb.config import Settings
 import mlflow
+import json
 from datetime import datetime
 import re
 #from langchain.embeddings import HuggingFaceEmbeddings
@@ -140,10 +141,26 @@ def main():
           print(" New global best! Promoting artifacts...")
           os.makedirs('artifacts',exist_ok=True)
           with open('artifacts/config_used.yaml','w') as f:
-            yaml.dump(config,f)
+            yaml.dump(current_cfg,f)
           mlflow.log_artifacts('artifacts')
+          with open("promotion_result.json", "w") as f:
+            json.dump({
+                "promotion_status": "approved",
+                "branch": branch,
+                "metric": "recall",
+                "main_score": float(main_best_recall),
+                "new_score": float(metrics_dict["recall"])
+                      }, f, indent=2)
         else:
           print("🟡 No improvement over current bests.")
+          with open("promotion_result.json", "w") as f:
+            json.dump({
+                "promotion_status": "skipped",
+                "branch": branch,
+                "metric": "recall",
+                "main_score": float(main_best_recall),
+                "new_score": float(metrics_dict["recall"])
+                      }, f, indent=2)
       else:
           print("📘 Main branch: logging only (no comparisons).")
 
