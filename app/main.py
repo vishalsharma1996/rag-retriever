@@ -6,6 +6,8 @@ from app import loader
 from config import companies
 from pydantic import BaseModel
 from fastapi import FastAPI,Body,HTTPException
+from app.batch_embedder import EmbeddingBatcher
+import asyncio
 import time
 import torch
 from typing import List,Dict
@@ -42,9 +44,30 @@ def home():
         "message": "Finance RAG Retriever FastAPI is live 🎉",
     }
 
+# ---------------------------------------------------
+# 📌 Makes the worker run in background
+# ---------------------------------------------------
+@app.on_event('startup')
+async def startup_event():
+  global batcher
+  batcher = EmbeddingBatcher(
+        embedder=embedder,
+        batch_size=512,
+        max_wait_ms=5
+  )
+  return asyncio.create_task(batcher.worker())
 
 # ---------------------------------------------------
-# 📌 Test Endpoint — Embedding Test
+# 📌 Test Endpoint — For real world applications
+# ---------------------------------------------------
+@app.post("/embed/rt")
+async def embed_realtime(body: dict):
+  text = body["text"]
+  embedding = await batcher.enqueue(text)
+  return {"embedding": embedding.tolist()}
+
+# ---------------------------------------------------
+# 📌 Test Endpoint — For Bulk Embedding Test
 # ---------------------------------------------------
 @app.post("/embed")
 def embed_text(body: QueryInput):
@@ -77,28 +100,23 @@ def embed_text(body: QueryInput):
     )
     cpu_time = time.time() - cpu_start
 
-    # ---------------- GPU Batch Embedding ----------------
-    # gpu_start = time.time()
-    # query_embeddings = inference.embed_query(embedder, all_processed)
-    # gpu_time = time.time() - gpu_start
+    #---------------- GPU Batch Embedding ----------------
+    gpu_start = time.time()
+    query_embeddings = inference.embed_query(embedder, all_processed)
+    gpu_time = time.time() - gpu_start
 
     total_time = time.time() - total_start
-    return {
-        "timing": {
-          "cpu_preprocessing_sec": cpu_time,
-            "total_pipeline_sec": total_time
-                  }
-            }
-
     # return {
-    #     "embeddings": query_embeddings.tolist(),
-    #     "tickers": all_tickers,
     #     "timing": {
     #       "cpu_preprocessing_sec": cpu_time,
     #         "gpu_embedding_sec": gpu_time,
     #         "total_pipeline_sec": total_time
     #               }
     #         }
+
+    return {
+        "embeddings": query_embeddings.tolist()
+            }
 
 
 # ---------------------------------------------------
