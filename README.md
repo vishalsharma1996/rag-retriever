@@ -40,28 +40,35 @@ rag-retriever/
 │   ├── data_combine.py          # Combine split + short docs
 │   ├── model_inference.py       # Retrieve relevant documents
 │   ├── evaluate.py              # Evaluate retrieval performance
-│   ├── mlflow_utils.py          # MLflow setup, tracking, comparison & artifact management
-│   ├── config_utils.py          # Handles config loading & writing
+│   ├── mlflow_utils.py          # MLflow setup, tracking, comparison, artifact management
+│   ├── config_utils.py          # Load and manage YAML config
 │   ├── config/
-│   │   └── config.yaml          # Base configuration (embedding, reranker, CUDA, splitter, etc.)
+│   │   └── config.yaml          # Base config (embedding, reranker, CUDA, splitter settings, etc.)
 │   ├── artifacts/
 │   │   └── config_used.yaml     # Auto-generated config snapshot per MLflow run
 │   └── ...
 │
 ├── app/
 │   ├── __init__.py              # Makes app a package
-│   ├── main.py                  # FastAPI entrypoint (uvicorn app.main:app)
-│   ├── inference.py             # Calls RAG model/embeddings for API requests
-│   ├── loader.py                # Loads models on startup (embedding model, reranker)
-│   ├── celery_worker.py         # Celery worker for async background jobs
-│   ├── tasks.py                 # Celery tasks (async embedding, batch process, etc.)
-│   └── utils/                   # (optional) helper utility functions
+│   ├── main.py                  # FastAPI entrypoint: uvicorn app.main:app
+│   ├── inference.py             # Handles embedding + RAG inference for API requests
+│   ├── loader.py                # Loads embedding/reranker models into memory
+│   ├── batch_embedder.py        # ⭐ Asynchronous Micro-Batcher
+│   │                             # Collects real-time requests (5–20ms window)
+│   │                             # Groups them into GPU batches (e.g., 512)
+│   │                             # Runs a single embedder.encode() call
+│   │                             # Returns individual results to each request
+│   │                             # Enables OpenAI-style high-throughput inference
+│   ├── celery_worker.py          # Celery worker for async background CPU tasks
+│   ├── tasks.py                  # Celery tasks (preprocessing, pipeline stages)
+│   └── utils/
 │       └── __init__.py
 │
-├── main.py                      # CLI entry — runs retrieval + MLflow pipeline
+├── main.py                      # CLI entrypoint — runs retrieval pipeline + MLflow tracking
 ├── requirements.txt             # Python dependencies
-├── Dockerfile                   # Optional: containerized setup
-└── README.md                    # Documentation for the repo
+├── Dockerfile                   # Optional: containerized deployment setup
+└── README.md                    # Project documentation + usage instructions
+
 
 ```
 
