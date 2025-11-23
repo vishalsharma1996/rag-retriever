@@ -47,9 +47,21 @@ rag-retriever/
 │   ├── artifacts/
 │   │   └── config_used.yaml     # Auto-generated config snapshot per MLflow run
 │   └── ...
+│
+├── app/
+│   ├── __init__.py              # Makes app a package
+│   ├── main.py                  # FastAPI entrypoint (uvicorn app.main:app)
+│   ├── inference.py             # Calls RAG model/embeddings for API requests
+│   ├── loader.py                # Loads models on startup (embedding model, reranker)
+│   ├── celery_worker.py         # Celery worker for async background jobs
+│   ├── tasks.py                 # Celery tasks (async embedding, batch process, etc.)
+│   └── utils/                   # (optional) helper utility functions
+│       └── __init__.py
+│
+├── main.py                      # CLI entry — runs retrieval + MLflow pipeline
 ├── requirements.txt             # Python dependencies
-├── Dockerfile                   # (optional) for containerized setup
-└── main.py                      # Entry point — runs retrieval + MLflow tracking
+├── Dockerfile                   # Optional: containerized setup
+└── README.md                    # Documentation for the repo
 
 ```
 
@@ -111,6 +123,85 @@ docker cp rag-container:/app/src/chroma_collection ./chroma_collection
 Ensure NVIDIA Container Toolkit is installed — installation guide here
 .
 
-GPU version used: CUDA 12.6, compatible with torch==2.8.0+cu126.
+GPU version used: CUDA 12.6, compatible with torch==2.9.0+cu126.
 
 Environment variables like TF_CPP_MIN_LOG_LEVEL and CUDA_VISIBLE_DEVICES are already handled inside main.py for cleaner logs.
+
+## 🌐 Run as FastAPI API (Colab / Local) — with Ngrok
+
+This section lets you expose your FastAPI inference server publicly using Ngrok, without Docker.
+1. Clone the repository
+git clone https://github.com/vishalsharma1996/rag-retriever.git
+cd rag-retriever
+2. Install dependencies
+pip install -r requirements.txt
+3. Download NLTK data
+import nltk
+nltk.download('punkt_tab')
+
+🚀 FastAPI + Uvicorn + Ngrok Setup
+2. Install required tools
+pip install pyngrok
+
+
+If using Colab, also install:
+
+pip install nest_asyncio
+
+2. Start Redis server
+
+If on local (Windows/Mac/Linux):
+
+redis-server
+
+If on Colab:
+
+sudo apt-get install redis-server
+redis-server --daemonize yes # this should return PONG
+
+3. Start your FastAPI app
+
+From inside the project folder:
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level debug
+
+Or Colab background run:
+
+!nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level debug > server.log 2>&1 &
+
+4. Connect Ngrok to expose API publicly
+Auth
+from pyngrok import ngrok
+ngrok.set_auth_token("<YOUR_NGROK_TOKEN>")
+
+Expose port 8000
+public_url = ngrok.connect(8000)
+public_url
+
+You will get a URL like:
+
+https://random-subdomain.ngrok-free.app
+
+Your FastAPI docs will be live at:
+
+https://random-subdomain.ngrok-free.app/docs
+
+⚡ Celery Worker (For Background Embedding Jobs)
+
+Start Celery inside your /app folder:
+
+!nohup celery -A app.celery_worker.celery_app worker -Q cpu --loglevel=info --concurrency=2 > celery.log 2>&1 & # add concurrency as your available cpu count
+
+This will run tasks defined in app/tasks.py.
+
+🧠 Folder Paths Used by FastAPI
+
+app/main.py → starts the API
+
+app/loader.py → loads embedding/reranker models
+
+app/inference.py → handles real-time RAG retrieval
+
+app/tasks.py → async Celery tasks
+
+app/celery_worker.py → Celery worker
