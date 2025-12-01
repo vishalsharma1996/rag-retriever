@@ -1,5 +1,5 @@
 from app.shard_map import shard_map
-from scripts import create_shard_collections
+from scripts.create_shards import create_shard_collections
 import chromadb
 BATCH_SIZE = 500
 def migrate():
