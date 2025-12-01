@@ -7,7 +7,7 @@ class EmbeddingBatcher:
         self.batch_size = batch_size
         self.max_wait_ms = max_wait_ms
         self.queue = asyncio.Queue()
-    
+
     async def enqueue(self,text):
       loop = asyncio.get_event_loop()
       future = loop.create_future()
@@ -23,7 +23,7 @@ class EmbeddingBatcher:
         texts.append(item[0])
         try:
           while len(batch) < self.batch_size:
-            item = await asyncio.wait_for(self.queue.get(),self.wait_ms/10000)
+            item = await asyncio.wait_for(self.queue.get(),self.wait_ms/1000)
             batch.append(item)
             texts.append(item[0])
         except asyncio.TimeoutError:
@@ -33,6 +33,6 @@ class EmbeddingBatcher:
                                        batch = self.batch_size,
                                        convert_to_tensor = True,
                                        show_progress_bar = False)
-          
+
         for i, (_,future) in enumerate(batch):
           future.set_results(embs[i].cpu().numpy())
