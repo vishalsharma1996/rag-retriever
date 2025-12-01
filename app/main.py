@@ -70,7 +70,7 @@ async def embed_realtime(body: dict):
 # 📌 Test Endpoint — For Bulk Embedding Test
 # ---------------------------------------------------
 @app.post("/embed")
-def embed_text(body: QueryInput):
+async def embed_text(body: QueryInput):
     """
     Returns embedding for a given input text.
     """
@@ -104,19 +104,24 @@ def embed_text(body: QueryInput):
     gpu_start = time.time()
     query_embeddings = inference.embed_query(embedder, all_processed)
     gpu_time = time.time() - gpu_start
-
     total_time = time.time() - total_start
-    # return {
-    #     "timing": {
-    #       "cpu_preprocessing_sec": cpu_time,
-    #         "gpu_embedding_sec": gpu_time,
-    #         "total_pipeline_sec": total_time
-    #               }
-    #         }
 
+    # Start timer for sharded chroma retrieval
+    shard_start = time.time()
+    search_tasks = []
+    for emb,ticker in zip(query_embeddings,all_tickers):
+      search_tasks.append(inference.async_shard_chroma_search(collection = chroma_collection, 
+                                                    query_embedding = emb,
+                                                    ticker = ticker,
+                                                    top_k=100))
+    results = await asyncio.gather(*search_tasks)
+    # End timer
+    shard_time = time.time() - shard_start
+    
     return {
-        "embeddings": query_embeddings.tolist()
-            }
+        "total_gpu_processing_time": total_time,
+        "shard_search_time": shard_time
+           }
 
 
 # ---------------------------------------------------
