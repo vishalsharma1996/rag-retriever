@@ -1,18 +1,19 @@
-from chromadb import Client
 from app.shard_map import shard_map
 from scripts import create_shard_collections
+import chromadb
 BATCH_SIZE = 500
 def migrate():
   '''Migrates existing chroma db collection to shards'''
-  client = Client()
-  old = client.get_collection("financial_docs_fin-mpnet-base")
+  source_client = chromadb.PersistentClient(path='chroma_store')
+  old = source_client.get_collection("financial_docs_fin-mpnet-base")
   # Get total documents
   total = old.count()
   print(f"Total docs in old collection: {total}")
   create_shard_collections()
   # Create shard collections
   shard_names = set(shard_map.values())
-  shards = {name: client.get_or_create_collection(name) for name in shard_names}
+  shard_client = chromadb.PersistentClient(path='shard_store')
+  shards = {name: shard_client.get_collection(name) for name in shard_names}
   for offset in range(0, total, BATCH_SIZE):
     print(f"Processing batch {offset} - {offset + BATCH_SIZE}")
     # 1. Load batch
@@ -52,4 +53,4 @@ def migrate():
                     metadatas=data["metadatas"]
                 )
         print(f"Added {len(data['ids'])} docs → {name}")
-  print("🎉 Migration complete!")
+  print("\n🎉 Sharding Migration Completed Successfully!")
