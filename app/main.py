@@ -110,14 +110,14 @@ async def embed_text(body: QueryInput):
     shard_start = time.time()
     search_tasks = []
     for emb,ticker in zip(query_embeddings,all_tickers):
-      search_tasks.append(inference.async_shard_chroma_search(collection = chroma_collection, 
+      search_tasks.append(inference.async_shard_chroma_search(collection = chroma_collection,
                                                     query_embedding = emb,
                                                     ticker = ticker,
                                                     top_k=100))
     results = await asyncio.gather(*search_tasks)
     # End timer
     shard_time = time.time() - shard_start
-    
+
     return {
         "total_gpu_processing_time": total_time,
         "shard_search_time": shard_time
