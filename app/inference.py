@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import torch
+import os
 from typing import List,Dict
 from sentence_transformers import SentenceTransformer
 from app.celery_worker import celery_app
@@ -9,10 +10,10 @@ from celery.result import AsyncResult
 from app.shard_map import shard_map
 from scripts.migrate_to_shards import migrate
 from chromadb import Client
-import asyncio
+import asyncio,chromadb
 from concurrent.futures import ThreadPoolExecutor
 
-executor = ThreadPoolExecutor(max_workers=os.cpu_count())
+executor = ThreadPoolExecutor(max_workers=32)
 
 def chunk_list(lst, size):
     """Split a list into chunks of given size."""
@@ -77,7 +78,7 @@ async def async_chroma_search(collection, query_embedding, ticker, top_k=100):
     return await loop.run_in_executor(
         executor,
         lambda: collection.query(
-            query_embeddings=query_embedding,
+            query_embeddings=[query_embedding],
             n_results=top_k,
             where={"ticker": ticker})
         )
@@ -110,7 +111,7 @@ async def async_shard_chroma_search(collection, query_embedding, ticker, top_k=1
     results = await loop.run_in_executor(
         executor,
         lambda: shard_collection.query(
-            query_embeddings = query_embedding,
+            query_embeddings = [query_embedding],
             n_results = top_k,
             where={"ticker": ticker},
             include=["documents", "distances", "metadatas"])
