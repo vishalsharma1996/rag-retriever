@@ -108,13 +108,11 @@ async def embed_text(body: QueryInput):
 
     # Start timer for sharded chroma retrieval
     shard_start = time.time()
-    search_tasks = []
-    for emb,ticker in zip(query_embeddings,all_tickers):
-      search_tasks.append(inference.async_shard_chroma_search(collection = chroma_collection,
-                                                    query_embedding = emb,
-                                                    ticker = ticker,
-                                                    top_k=100))
-    results = await asyncio.gather(*search_tasks)
+    results = await inference.async_batch_retrieve(
+    collection=chroma_collection,
+    embeddings=query_embeddings,
+    tickers=all_tickers,
+    top_k=100)
     # End timer
     shard_time = time.time() - shard_start
 
