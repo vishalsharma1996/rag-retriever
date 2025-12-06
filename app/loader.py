@@ -7,7 +7,11 @@ def load_embedding_model(path='models/embedding',device='cpu'):
   """
     Load the SentenceTransformer embedding model from local directory.
   """
-  model = SentenceTransformer(path, device=device)
+  model = SentenceTransformer(
+    path,
+    device=device,
+    model_kwargs={"torch_dtype": torch.float16 if device == "cuda" else torch.float32}
+                                )
   return model
 
 def load_reranker(path="models/reranker", device='cpu'):
@@ -15,7 +19,9 @@ def load_reranker(path="models/reranker", device='cpu'):
     Load BGE CrossEncoder reranker using SentenceTransformers.
     This automatically loads tokenizer + model internally.
     """
-    reranker = CrossEncoder(path, device=device)
+    reranker = CrossEncoder(path, 
+                            device=device,
+                            model_kwargs={"torch_dtype": torch.float16 if device == "cuda" else torch.float32})
     return reranker
 
 def load_chroma(path="chroma_store", collection_name="financial_docs_fin-mpnet-base"):
