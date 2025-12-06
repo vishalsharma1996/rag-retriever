@@ -13,7 +13,7 @@ def migrate():
   # Create shard collections
   shard_names = set(shard_map.values())
   shard_client = chromadb.PersistentClient(path='shard_store')
-  shards = {name: shard_client.get_collection(name) for name in shard_names}
+  shards = {name: shard_client.get_or_create_collection(name) for name in shard_names}
   for offset in range(0, total, BATCH_SIZE):
     print(f"Processing batch {offset} - {offset + BATCH_SIZE}")
     # 1. Load batch
@@ -22,7 +22,7 @@ def migrate():
             where=None,
             limit=BATCH_SIZE,
             offset=offset,
-            include=["embeddings", "documents", "metadatas"]
+            include=["ids","embeddings", "documents", "metadatas"]
             )
     ids = batch["ids"]
     docs = batch["documents"]
