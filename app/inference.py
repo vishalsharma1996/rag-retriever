@@ -10,11 +10,23 @@ from celery.result import AsyncResult
 from app.shard_map import shard_map
 from scripts.migrate_to_shards import migrate
 from chromadb import Client
+import time
+from datasets import Dataset
 import asyncio,chromadb
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 
 executor = ThreadPoolExecutor(max_workers=8)
+
+def safe_text(x):
+    if x is None:
+        return ""
+    if isinstance(x, str):
+        return x
+    try:
+        return str(x)
+    except:
+        return ""
 
 def chunk_list(lst, size):
     """Split a list into chunks of given size."""
@@ -90,32 +102,32 @@ async def async_batch_shard_search(shard_name, emb_list,
         results = await loop.run_in_executor(
             executor,
             lambda: shard_collection.query(
-                query_embeddings=emb_list, 
-                n_results=top_k,
-                include=["documents", "distances", "metadatas"]
+                query_embeddings=emb_list,
+                n_results=top_k
             )
         )
         return results
     # Split into smaller chunks
-    all_docs, all_dists, all_metas = [], [], []
+    all_ids ,all_docs, all_dists, all_metas = [] ,[], [], []
     for i in range(0, len(emb_list), max_batch_size):
         chunk = emb_list[i:i + max_batch_size]
         print(f"  Processing chunk {i//max_batch_size + 1}: {len(chunk)} queries")
         chunk_results = await loop.run_in_executor(
             executor,
             lambda: shard_collection.query(
-                query_embeddings=chunk, 
-                n_results=top_k,
-                include=["documents", "distances", "metadatas"]
+                query_embeddings=chunk,
+                n_results=top_k
             )
         )
+        all_ids.extend(chunk_results["ids"])
         all_docs.extend(chunk_results["documents"])
         all_dists.extend(chunk_results["distances"])
         all_metas.extend(chunk_results["metadatas"])
-    
+
     return {
+        "ids": all_ids,
         "documents": all_docs,
-        "distances": all_dists, 
+        "distances": all_dists,
         "metadatas": all_metas
     }
 
@@ -142,7 +154,7 @@ async def async_batch_retrieve(collection, embeddings, tickers, top_k=100):
     Groups all queries by shard, performs 1 batched search per shard,
     then merges results back to original order.
   """
-  
+
   grouped = defaultdict(lambda: {"embeddings": [], "indexes": []})
   for idx, (emb, ticker) in enumerate(zip(embeddings, tickers)):
         shard_name = shard_map.get(ticker)
@@ -181,60 +193,120 @@ async def async_batch_retrieve(collection, embeddings, tickers, top_k=100):
     # Each embedding gets its own list of results inside batch output
     for i, original_idx in enumerate(indexes):
             final_results[original_idx] = {
+                "ids": res["ids"][i],
                 "documents": res["documents"][i],
                 "distances": res["distances"][i],
                 "metadatas": res["metadatas"][i]
             }
   return final_results
 
-def rerank_results(reranker, query: str, documents: list, contents: list, final_k=10):
-  """
-    Reranks retrieved documents using CrossEncoder.
-    documents → list of document IDs
-    contents → list of text content
-  """
-  pairs = [(query, doc) for doc in contents]
-  doc_id = [id for id in documents]
-  content = [doc for doc in contents]
-  scores = reranker.predict(pairs)
-  result_df = pd.DataFrame({'content':content,'corpus_id':doc_id,'rerank_score':scores}).sort_values('rerank_score',ascending=False)
-  result_df['corpus_id'] = result_df.corpus_id.apply(lambda x: x.split('_')[0])
-  result_df.drop_duplicates('corpus_id',inplace=True)
-  result_df = result_df.head(final_k)
-  return [
-        {
-            "score": round(float(score), 2),
+def batched_rerank_all(reranker, queries,  docs_per_query,
+    doc_ids_per_query,
+    mapping,
+    scores,
+    pairs,
+    final_k=10):
+    """
+      Combines batched reranking results into final per-query top-K outputs.
+    """
+  # ---------------------------------------------------------
+    # 1) Build per-query lists: qi → list of {doc_id, content, score}
+    # ---------------------------------------------------------
+    per_query = defaultdict(list)
+
+    for (qi, di), score, pair in zip(mapping, scores, pairs):
+        doc_text = pair[1]
+        doc_id = doc_ids_per_query[qi][di]
+
+        per_query[qi].append({
             "doc_id": doc_id,
-            "content": content
-        }
-        for score, doc_id, content in zip(result_df.rerank_score.values,result_df.corpus_id.values,result_df.content.values)
-        ]
+            "corpus_id": doc_id.split("_")[0],   # dedupe key
+            "content": doc_text,
+            "score": float(score)
+        })
 
-# def rag_pipeline(embedder, reranker, collection, queries,
-#                    company_map, reverse_company_map, top_k=100, final_k=10):
-#     """
-#     Complete RAG pipeline:
-#     1) Embed query
-#     2) Retrieve using Chroma
-#     3) Rerank using CrossEncoder
-#     """
-#     # Step 1 — Process pipeline queries
-#     all_processed,all_tickers = process_queries_pipeline(queries,company_map, reverse_company_map)
-#     query_embeddings = embed_query(embedder, all_processed)
+    # ---------------------------------------------------------
+    # 2) Sort, dedupe, select top_k for each query
+    # ---------------------------------------------------------
+    final_output = []
 
-#     # Step 2 — Retriever
-#     chroma_results = chroma_search(collection, query_embedding, ticker, top_k=100)
+    for qi, query in enumerate(queries):
 
-#     retrieved_docs = chroma_results["ids"][0]
-#     retrieved_contents = chroma_results["documents"][0]
+        df = pd.DataFrame(per_query[qi])
 
-#     # Step 3 — Rerank
-#     final_results = rerank_results(
-#         reranker,
-#         all_processed,
-#         retrieved_docs,
-#         retrieved_contents,
-#         final_k = final_k
-#     )
+        if df.empty:
+            final_output.append({"query": query, "results": []})
+            continue
 
-#     return final_results
+        df = (
+            df.sort_values("score", ascending=False)
+              .drop_duplicates("corpus_id")
+              .head(final_k)
+        )
+
+        final_output.append({
+            "query": query,
+            "results": df.to_dict(orient="records")
+        })
+
+    return final_output
+
+
+async def rag_pipeline(embedder, reranker, chroma_collection, queries,
+                   company_map, reverse_company_map, top_k=100, batch_size=128, final_k=10):
+    """
+    Complete RAG pipeline:
+    1) Embed query
+    2) Retrieve using Chroma
+    3) Rerank using CrossEncoder
+    """
+    # Step 1 — Process pipeline queries
+    all_processed,all_tickers = process_queries_pipeline(queries, company_map, reverse_company_map)
+    query_embeddings = embed_query(embedder, all_processed)
+
+    # Step 2 — Retriever
+    chroma_results = await async_batch_retrieve(collection = chroma_collection,
+      embeddings = query_embeddings,
+      tickers = all_tickers,
+      top_k = top_k)
+
+    # Extract doc texts + doc ids for each query
+    docs_per_query = [res["documents"] for res in chroma_results]
+    doc_ids_per_query = [res["ids"] for res in chroma_results]
+    pairs = []
+    mapping = []       # (query_index, doc_index)
+    for qi, docs in enumerate(docs_per_query):
+        for di, doc_text in enumerate(docs):
+            pairs.append((safe_text(all_processed[qi]), safe_text(doc_text)))
+            mapping.append((qi, di))
+
+    scores = []
+    inputs = [{"text": q, "text_pair": d} for q, d in pairs]
+
+    outputs = reranker(
+    inputs,               # list, not per-example calls
+    batch_size=batch_size,
+    truncation=True
+    )
+
+    for o in outputs:
+        if isinstance(o, list):
+            scores.append(o[0]["score"])
+        else:
+            scores.append(o["score"])
+    return scores
+
+     # -----------------------------
+    # 5. Build final structured RAG output
+    # -----------------------------
+    final_output = batched_rerank_all(
+        reranker=reranker,
+        queries=all_processed,
+        docs_per_query=docs_per_query,
+        doc_ids_per_query=doc_ids_per_query,
+        mapping=mapping,
+        scores=scores,
+        pairs=pairs,
+        final_k=final_k
+        )
+    return final_output
