@@ -1,5 +1,6 @@
 from sentence_transformers import SentenceTransformer,CrossEncoder
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+import torch
 from chromadb import PersistentClient
 import torch
 
@@ -14,15 +15,29 @@ def load_embedding_model(path='models/embedding',device='cpu'):
                                 )
   return model
 
-def load_reranker(path="models/reranker", device='cpu'):
+def load_reranker(path="models/reranker", device="cuda"):
     """
-    Load BGE CrossEncoder reranker using SentenceTransformers.
-    This automatically loads tokenizer + model internally.
+    Load BGE reranker using HuggingFace pipeline.
+    MUCH faster than SentenceTransformers CrossEncoder.
     """
-    reranker = CrossEncoder(path, 
-                            device=device,
-                            model_kwargs={"torch_dtype": torch.float16 if device == "cuda" else torch.float32})
-    return reranker
+    tokenizer = AutoTokenizer.from_pretrained(path, use_fast=True)
+
+    model = AutoModelForSequenceClassification.from_pretrained(
+        path,
+        torch_dtype=torch.float16 if device == "cuda" else torch.float32
+    ).to(device)
+
+    rerank_pipe = pipeline(
+        "text-classification",
+        model=model,
+        tokenizer=tokenizer,
+        device=0 if device == "cuda" else -1,
+        truncation=True,
+        max_length=64,     # your text is SHORT → big speed boost
+        batch_size=512     # optimal for T4 GPU
+    )
+
+    return rerank_pipe
 
 def load_chroma(path="chroma_store", collection_name="financial_docs_fin-mpnet-base"):
     """
