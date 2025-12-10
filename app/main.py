@@ -7,8 +7,13 @@ from config import companies
 from pydantic import BaseModel
 from fastapi import FastAPI,Body,HTTPException
 from app.batch_embedder import EmbeddingBatcher
+from fastapi.responses import JSONResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import StreamingResponse
+import orjson
 import asyncio
 import time
+import sys
 import torch
 from typing import List,Dict
 import ast
@@ -74,10 +79,7 @@ async def embed_text(body: QueryInput):
     """
     Returns embedding for a given input text.
     """
-    total_start = time.time()
 
-    # ---------------- CPU (Celery) Preprocessing ----------------
-    cpu_start = time.time()
      # ---------------- Input Parsing ----------------
     raw = body.raw.strip()
     try:
@@ -98,28 +100,18 @@ async def embed_text(body: QueryInput):
     all_processed, all_tickers = inference.process_queries_pipeline(
         queries, company_map, reverse_company_map
     )
-    cpu_time = time.time() - cpu_start
 
     #---------------- GPU Batch Embedding ----------------
-    gpu_start = time.time()
     query_embeddings = inference.embed_query(embedder, all_processed)
-    gpu_time = time.time() - gpu_start
-    total_time = time.time() - total_start
 
     # Start timer for sharded chroma retrieval
-    shard_start = time.time()
     results = await inference.async_batch_retrieve(
     collection=chroma_collection,
     embeddings=query_embeddings,
     tickers=all_tickers,
     top_k=100)
-    # End timer
-    shard_time = time.time() - shard_start
+    return results
 
-    return {
-        "total_gpu_processing_time": total_time,
-        "shard_search_time": shard_time
-           }
 
 
 # ---------------------------------------------------
@@ -136,27 +128,43 @@ def rerank(query: str, passage: str):
 # ---------------------------------------------------
 # 📌 RAG Inference Endpoint — Retrieve + Rerank
 # ---------------------------------------------------
-@app.get("/rag")
-def rag_endpoint(query: str, final_k: int = 10):
+@app.post("/rag")
+async def rag_endpoint(body: QueryInput, final_k: int = 10):
     """
     Full RAG pipeline:
     1) Embed query
     2) Retrieve with Chroma
     3) Rerank using CrossEncoder
     """
-    results = inference.rag_pipeline(
-        embedder=embedder,
-        reranker=reranker,
-        collection=chroma_collection,
-        query=query,
+    raw = body.raw.strip()
+    try:
+        queries = ast.literal_eval(raw)
+
+        if not isinstance(queries, list):
+            raise ValueError("Input must be a Python-style list.")
+
+        # Ensure all elements inside are strings
+        if not all(isinstance(q, str) for q in queries):
+            raise ValueError("All elements inside the list must be strings.")
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid input format. Paste like: ['AAPL','MSFT'] Error: {str(e)}"
+        )
+
+    start = time.perf_counter()
+    results = await inference.rag_pipeline(
+        embedder  = embedder,
+        reranker = reranker,
+        chroma_collection = chroma_collection,
+        queries = queries,
         company_map = company_map,
         reverse_company_map = reverse_company_map,
-        top_k = 100,
+        top_k = 50,
+        batch_size = 1024,
         final_k = final_k
     )
-
-    return {
-        "query": query,
-        "top_k": final_k,
-        "results": results
-    }
+    elapsed = time.perf_counter() - start
+    #return {"results": results}
+    return {"time_taken_seconds": round(elapsed, 4)}
