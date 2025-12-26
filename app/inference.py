@@ -9,14 +9,17 @@ from app.tasks import preprocess_query_batch
 from celery.result import AsyncResult
 from app.shard_map import shard_map
 from scripts.migrate_to_shards import migrate
+from app.cache import check_retrieval_cache, store_retrieval_cache, get_rerank_score, set_rerank_score
 from chromadb import Client
 import time
+import logging
 from datasets import Dataset
 import asyncio,chromadb
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 
 executor = ThreadPoolExecutor(max_workers=8)
+logger = logging.getLogger(__name__)
 
 def safe_text(x):
     if x is None:
@@ -200,6 +203,15 @@ async def async_batch_retrieve(collection, embeddings, tickers, top_k=100):
             }
   return final_results
 
+def fetch_docs_by_ids(collection, doc_ids):
+      res = collection.get(ids=doc_ids)
+      return {
+          "ids": res["ids"],
+          "documents": res["documents"],
+          "distances": [None] * len(res["ids"]),
+          "metadatas": res["metadatas"]
+             }
+
 def batched_rerank_all(reranker, queries,  docs_per_query,
     doc_ids_per_query,
     mapping,
@@ -263,40 +275,86 @@ async def rag_pipeline(embedder, reranker, chroma_collection, queries,
     # Step 1 — Process pipeline queries
     all_processed,all_tickers = process_queries_pipeline(queries, company_map, reverse_company_map)
     query_embeddings = embed_query(embedder, all_processed)
+    cached_results = {}
+    miss_indexes = []
+    for i,emb in enumerate(query_embeddings):
+      cached = check_retrieval_cache(emb)
+      if cached:
+        cached_results[i] = cached['doc_ids']
+      else:
+        miss_indexes.append(i)
 
     # Step 2 — Retriever
-    chroma_results = await async_batch_retrieve(collection = chroma_collection,
-      embeddings = query_embeddings,
-      tickers = all_tickers,
-      top_k = top_k)
+    chroma_results = [None] * len(query_embeddings)
+    # Fill cached queries first
+    for qi, doc_ids in cached_results.items():
+      chroma_results[qi] = fetch_docs_by_ids(chroma_collection, doc_ids)
+    if miss_indexes:
+      miss_embeddings = [query_embeddings[i] for i in miss_indexes]
+      miss_tickers = [all_tickers[i] for i in miss_indexes]
+      retrieved = await async_batch_retrieve(collection = chroma_collection,
+        embeddings = miss_embeddings,
+        tickers = miss_tickers,
+        top_k = top_k)
+      for idx,res in zip(miss_indexes,retrieved):
+        chroma_results[idx] = res
 
     # Extract doc texts + doc ids for each query
     docs_per_query = [res["documents"] for res in chroma_results]
     doc_ids_per_query = [res["ids"] for res in chroma_results]
     pairs = []
     mapping = []       # (query_index, doc_index)
+    cached_scores = {}
     for qi, docs in enumerate(docs_per_query):
         for di, doc_text in enumerate(docs):
-            pairs.append((safe_text(all_processed[qi]), safe_text(doc_text)))
-            mapping.append((qi, di))
+            q = safe_text(all_processed[qi])
+            doc_id = doc_ids_per_query[qi][di]
+            try:
+              cached = get_rerank_score(q, doc_id)
+            except Exception:
+              logger.warning("Redis read failed, continuing without cache")
+              cached = None
+            if cached is not None:
+              cached_scores[(qi, di)] = cached
+            else:
+              pairs.append((q, safe_text(doc_text)))
+              mapping.append((qi, di))
 
     scores = []
+    new_scores = []
+    agg_mapping = []
+    agg_pairs = []
     inputs = [{"text": q, "text_pair": d} for q, d in pairs]
-
     outputs = reranker(
     inputs,               # list, not per-example calls
     batch_size=batch_size,
     truncation=True
-    )
+    ) if inputs else []
 
     for o in outputs:
         if isinstance(o, list):
-            scores.append(o[0]["score"])
+            new_scores.append(o[0]["score"])
         else:
-            scores.append(o["score"])
-    return scores
+            new_scores.append(o["score"])
+    idx = 0
+    for qi, di in mapping:
+      q = safe_text(all_processed[qi])
+      doc_id = doc_ids_per_query[qi][di]
+      score = new_scores[idx]
+      try:
+        set_rerank_score(q, doc_id, score)
+      except Exception as e:
+        logger.warning("Redis write failed, continuing without cache")
+        pass
+      cached_scores[(qi, di)] = score
+      idx += 1
+    for qi, docs in enumerate(docs_per_query):
+      for di,doc_text in enumerate(docs):
+          scores.append(cached_scores[(qi, di)])
+          agg_mapping.append((qi, di))
+          agg_pairs.append((q, safe_text(doc_text)))
 
-     # -----------------------------
+    # -----------------------------
     # 5. Build final structured RAG output
     # -----------------------------
     final_output = batched_rerank_all(
@@ -304,9 +362,17 @@ async def rag_pipeline(embedder, reranker, chroma_collection, queries,
         queries=all_processed,
         docs_per_query=docs_per_query,
         doc_ids_per_query=doc_ids_per_query,
-        mapping=mapping,
+        mapping=agg_mapping,
         scores=scores,
-        pairs=pairs,
+        pairs=agg_pairs,
         final_k=final_k
         )
+    # -----------------------------
+    # 7. Store semantic cache (post-ranking)
+    # -----------------------------
+    for i in miss_indexes:
+      ranked_doc_ids = [
+          r["doc_id"] for r in final_output[i]["results"]
+      ]
+      store_retrieval_cache(query_embeddings[i], ranked_doc_ids)
     return final_output
