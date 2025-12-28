@@ -1,4 +1,3 @@
-
 import app.tasks
 from app.celery_worker import celery_app
 from app import inference
@@ -7,6 +6,7 @@ from config import companies
 from pydantic import BaseModel
 from fastapi import FastAPI,Body,HTTPException
 from app.batch_embedder import EmbeddingBatcher
+from prometheus_client import make_asgi_app
 from fastapi.responses import JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import StreamingResponse
@@ -26,6 +26,8 @@ app = FastAPI(
     description="Embedding, retrieval, and reranking API",
     version="1.0",
 )
+
+app.mount("/metrics", make_asgi_app())
 
 class QueryInput(BaseModel):
     raw: str
@@ -153,7 +155,7 @@ async def rag_endpoint(body: QueryInput, final_k: int = 10):
             detail=f"Invalid input format. Paste like: ['AAPL','MSFT'] Error: {str(e)}"
         )
 
-    start = time.perf_counter()
+
     results = await inference.rag_pipeline(
         embedder  = embedder,
         reranker = reranker,
@@ -165,6 +167,4 @@ async def rag_endpoint(body: QueryInput, final_k: int = 10):
         batch_size = 1024,
         final_k = final_k
     )
-    elapsed = time.perf_counter() - start
-    #return {"results": results}
-    return {"time_taken_seconds": round(elapsed, 4)}
+    return {'results':results}
