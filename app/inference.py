@@ -10,9 +10,11 @@ from celery.result import AsyncResult
 from app.shard_map import shard_map
 from scripts.migrate_to_shards import migrate
 from app.cache import check_retrieval_cache, store_retrieval_cache, get_rerank_score, set_rerank_score,check_final_semantic_cache,store_final_semantic_cache
+from app.metrics import RAG_LATENCY, RAG_REQUESTS
 from chromadb import Client
 import time
 import logging
+import math
 from datasets import Dataset
 import asyncio,chromadb
 from collections import defaultdict
@@ -30,6 +32,14 @@ def safe_text(x):
         return str(x)
     except:
         return ""
+
+def calculate_percentile(values, p):
+    if not values:
+        return None
+    values = sorted(values)
+    idx = math.ceil(p / 100 * len(values)) - 1
+    return values[min(idx, len(values) - 1)]
+
 
 def chunk_list(lst, size):
     """Split a list into chunks of given size."""
@@ -272,6 +282,11 @@ async def rag_pipeline(embedder, reranker, chroma_collection, queries,
     2) Retrieve using Chroma
     3) Rerank using CrossEncoder
     """
+     # --------------------------------------------
+    # 🔵 METRICS INIT (NEW)
+    # --------------------------------------------
+  
+    pipeline_start = time.perf_counter()  # total batch timing (optional)
     # Step 1 — Process pipeline queries
     all_processed,all_tickers = process_queries_pipeline(queries, company_map, reverse_company_map)
     query_embeddings = embed_query(embedder, all_processed)
@@ -287,10 +302,16 @@ async def rag_pipeline(embedder, reranker, chroma_collection, queries,
       else:
         miss_indexes.append(i)
 
+    # 🔵 metric: final cache hits
+    final_hits = len(final_cached)
+    if final_hits:
+        RAG_REQUESTS.labels(path="final_cache").inc(final_hits)
     # Everything cached → return immediately
     if not miss_indexes:
+        latency = time.perf_counter() - pipeline_start
+        RAG_LATENCY.observe(latency)
         return [final_cached[i] for i in range(len(all_processed))]
-    
+
     # -------------------------------------------------
     # Step 3 — Build miss-only batches
     # -------------------------------------------------
@@ -309,6 +330,10 @@ async def rag_pipeline(embedder, reranker, chroma_collection, queries,
             cached_doc_ids[j] = cached["doc_ids"]
         else:
             retrieval_miss.append(j)
+
+    semantic_hits = len(cached_doc_ids)
+    if semantic_hits:
+        RAG_REQUESTS.labels(path="semantic_cache").inc(semantic_hits)
     
     chroma_results = [None] * len(miss_embeddings)
     # Fill cached queries first
@@ -330,6 +355,7 @@ async def rag_pipeline(embedder, reranker, chroma_collection, queries,
       for j, res in zip(retrieval_miss, retrieved):
         chroma_results[j] = res
 
+
     # -------------------------------------------------
     # Step 5 — Rerank (with Redis cache)
     # -------------------------------------------------
@@ -349,6 +375,10 @@ async def rag_pipeline(embedder, reranker, chroma_collection, queries,
                 rerank_pairs.append((q, safe_text(doc_text)))
                 rerank_map.append((qi, di))
 
+    reranker_hits = len(cached_scores)
+    if reranker_hits:
+      RAG_REQUESTS.labels(path="reranker_cache").inc(reranker_hits)
+
     if rerank_pairs:
         inputs = [{"text": q, "text_pair": d} for q, d in rerank_pairs]
         outputs = reranker(inputs, batch_size=batch_size, truncation=True)
@@ -356,7 +386,11 @@ async def rag_pipeline(embedder, reranker, chroma_collection, queries,
             score = outputs[idx][0]["score"] if isinstance(outputs[idx], list) else outputs[idx]["score"]
             cached_scores[(qi, di)] = score
             set_rerank_score(miss_processed[qi], doc_ids_per_query[qi][di], score)
-
+    
+    full_miss = len(rerank_pairs)
+    if full_miss:
+      RAG_REQUESTS.labels(path="full_miss").inc(full_miss)
+    
     # -------------------------------------------------
     # Step 6 — Aggregate MISSES ONLY
     # -------------------------------------------------
@@ -379,6 +413,10 @@ async def rag_pipeline(embedder, reranker, chroma_collection, queries,
         pairs=agg_pairs,
         final_k=final_k
     )
+
+    latency = time.perf_counter() - pipeline_start
+    RAG_LATENCY.observe(latency)
+
     # -------------------------------------------------
     # Step 7 — Merge + Store caches
     # -------------------------------------------------
@@ -399,5 +437,6 @@ async def rag_pipeline(embedder, reranker, chroma_collection, queries,
             query_embeddings[original_idx],
             [r["doc_id"] for r in miss_final_output[pos]["results"]]
         )
+
 
     return final_output
